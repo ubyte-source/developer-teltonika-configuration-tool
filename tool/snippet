@@ -118,6 +118,8 @@ if [[ $create ]]; then
   Configure "${CONFIGURATION}/${file}" "$file" "$create"
   Fortigate "$create"
 
+  sleep 120
+
   personalization=$(echo $hardware $create | jq -sc add)
   personalization_interface=$(printf '. | .free="%s"' $IP)
   personalization=$(jq -rc "$personalization_interface" <<< "$personalization")
