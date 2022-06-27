@@ -4,7 +4,7 @@ source $TOOL/configuration "$@"
 
 if ! $NETCAT -w 4 -z $IP 22 2>/dev/null; then
     echo "The teltonika host $IP is not reachable."
-    exit 1;
+    exit 1
 fi
 
 GetStaticRoute() {
@@ -37,12 +37,12 @@ Create() {
   local serial=$($JQ -rc .serial <<< "$1")
   local authorization=$($CURL -k -X POST -F "email=$CAMELOT_EMAIL" -F "password=$CAMELOT_PASSWORD" https://login.energia-europa.com/api/iam/user/login | $JQ -r .authorization)
   local request=$($CURL -k -H "x-authorization: $authorization"  -F "connectivity_mac=$mac" -F "connectivity_serial=$serial" https://engine.energia-europa.com/api/machine/connectivity/create)
+  local request_status=$($JQ -rc .status <<< "$request")
+  if [ $request_status = true ]; then
+    local created=$($JQ -rc .data <<< "$request")
+    $JQ -rc '. + .connectivity_interface | del(.connectivity_interface) | del(.connectivity_device)  | .fortinetipsecname = .connectivity_network_label[4:15] | .fortinetnetworkid = .connectivity_network[:-3]' <<< "$created"
+  fi
 
-  local status=$($JQ -rc .status <<< "$request")
-  [[ $status = false ]] && return 1
-
-  local created=$($JQ -rc .data <<< "$request")
-  $JQ -rc '. + .connectivity_interface | del(.connectivity_interface) | del(.connectivity_device)  | .fortinetipsecname = .connectivity_network_label[4:15] | .fortinetnetworkid = .connectivity_network[:-3]' <<< "$created"
   return 0
 }
 
@@ -113,15 +113,15 @@ Clean $FIRMWARE
 hardware=$(GetHardwareInfo)
 create=$(Create "$hardware")
 
-[[ $? -ne 0]] && exit 1
+if [[ $create ]]; then
+  file=$(GetConfiguration)
+  Configure "${CONFIGURATION}/${file}" "$file" "$create"
+  Fortigate "$create"
 
-file=$(GetConfiguration)
-Configure "${CONFIGURATION}/${file}" "$file" "$create"
-Fortigate "$create"
+  personalization=$(echo $hardware $create | jq -sc add)
+  personalization_interface=$(printf '. | .free="%s"' $IP)
+  personalization=$(jq -rc "$personalization_interface" <<< "$personalization")
+  Sendgrid "$personalization"
+fi
 
-personalization=$(echo $hardware $create | jq -sc add)
-personalization_interface=$(printf '. | .free="%s"' $IP)
-personalization=$(jq -rc "$personalization_interface" <<< "$personalization")
-Sendgrid "$personalization"
-
-exit 0;
+exit 0
