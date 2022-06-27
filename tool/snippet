@@ -105,7 +105,7 @@ Sendgrid() {
 version=$(GetVersion)
 if ! [[ "$TELTONIKA_FIRMWARE" =~ "$version" ]]; then
   Upgrade $FIRMWARE
-  sleep 120
+  sleep 300
   exit 0
 fi
 
@@ -119,7 +119,7 @@ if [[ $create ]]; then
   Configure "${CONFIGURATION}/${file}" "$file" "$create"
   Fortigate "$create"
 
-  sleep 120
+  sleep 300
 
   personalization=$(echo $hardware $create | jq -sc add)
   personalization_interface=$(printf '. | .free="%s"' $IP)
