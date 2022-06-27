@@ -39,9 +39,7 @@ Create() {
   local request=$($CURL -k -H "x-authorization: $authorization"  -F "connectivity_mac=$mac" -F "connectivity_serial=$serial" https://engine.energia-europa.com/api/machine/connectivity/create)
 
   local status=$($JQ -rc .status <<< "$request")
-  if [ $status = false ]; then
-      return 1
-  fi;
+  [[ $status = false ]] && return 1
 
   local created=$($JQ -rc .data <<< "$request")
   $JQ -rc '. + .connectivity_interface | del(.connectivity_interface) | del(.connectivity_device)  | .fortinetipsecname = .connectivity_network_label[4:15] | .fortinetnetworkid = .connectivity_network[:-3]' <<< "$created"
@@ -115,15 +113,15 @@ Clean $FIRMWARE
 hardware=$(GetHardwareInfo)
 create=$(Create "$hardware")
 
-if [ $? -eq 0 ]; then
-  file=$(GetConfiguration)
-  Configure "${CONFIGURATION}/${file}" "$file" "$create"
-  Fortigate "$create"
+[[ $? -ne 0]] && exit 1;
 
-  personalization=$(echo $hardware $create | jq -sc add)
-  personalization_interface=$(printf '. | .free="%s"' $IP)
-  personalization=$(jq -rc "$personalization_interface" <<< "$personalization")
-  Sendgrid "$personalization"
-fi
+file=$(GetConfiguration)
+Configure "${CONFIGURATION}/${file}" "$file" "$create"
+Fortigate "$create"
+
+personalization=$(echo $hardware $create | jq -sc add)
+personalization_interface=$(printf '. | .free="%s"' $IP)
+personalization=$(jq -rc "$personalization_interface" <<< "$personalization")
+Sendgrid "$personalization"
 
 exit 0;
