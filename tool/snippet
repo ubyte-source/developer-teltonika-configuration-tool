@@ -105,6 +105,7 @@ Sendgrid() {
 version=$(GetVersion)
 if ! [[ "$TELTONIKA_FIRMWARE" =~ "$version" ]]; then
   Upgrade $FIRMWARE
+  sleep 120
   exit 0
 fi
 
