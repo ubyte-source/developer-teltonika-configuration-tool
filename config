@@ -1,0 +1,9 @@
+Host *
+    HostKeyAlgorithms +ssh-rsa
+    PubkeyAcceptedKeyTypes +ssh-rsa
+    StrictHostKeyChecking no
+    UserKnownHostsFile=/dev/null
+    ConnectTimeout 4
+    LogLevel ERROR
+    ServerAliveInterval 1
+    ServerAliveCountMax 4

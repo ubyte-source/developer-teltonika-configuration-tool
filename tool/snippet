@@ -1,0 +1,129 @@
+#!/bin/bash
+
+source $TOOL/configuration "$@"
+
+if ! $NETCAT -w 4 -z $IP 22 2>/dev/null; then
+    echo "The teltonika host $IP is not reachable."
+    exit 1;
+fi
+
+GetStaticRoute() {
+  local number=$(echo "$1" | $JQ -r .id_connectivity)
+  ((number=100000+number))
+  echo $number
+  return 0
+}
+
+GetConfiguration() {
+  echo $($FIND ${CONFIGURATION} -name '*.tar.gz' | head -1 | xargs basename)
+  return 0
+}
+
+GetVersion() {
+  local cli=$(cat ${SNIPPET}/version.conf)
+  OpenSSH $TELTONIKA_USERNAME $TELTONIKA_PASSWORD $IP "${cli}"
+  return 0
+}
+
+Upgrade() {
+  local cli=$(cat ${SNIPPET}/upgrade.conf | sed "s|version|$1|g")
+  OpenSCP $TELTONIKA_USERNAME $TELTONIKA_PASSWORD $IP $1 $1
+  OpenSSH $TELTONIKA_USERNAME $TELTONIKA_PASSWORD $IP "${cli}"
+  return 0
+}
+
+Create() {
+  local mac=$($JQ -rc .mac <<< "$1")
+  local serial=$($JQ -rc .serial <<< "$1")
+  local authorization=$($CURL -k -X POST -F "email=$CAMELOT_EMAIL" -F "password=$CAMELOT_PASSWORD" https://login.energia-europa.com/api/iam/user/login | $JQ -r .authorization)
+  local request=$($CURL -k -H "x-authorization: $authorization"  -F "connectivity_mac=$mac" -F "connectivity_serial=$serial" https://engine.energia-europa.com/api/machine/connectivity/create)
+
+  local status=$($JQ -rc .status <<< "$request")
+  if [ $status = false ]; then
+      return 1
+  fi;
+
+  local created=$($JQ -rc .data <<< "$request")
+  $JQ -rc '. + .connectivity_interface | del(.connectivity_interface) | del(.connectivity_device)  | .fortinetipsecname = .connectivity_network_label[4:15] | .fortinetnetworkid = .connectivity_network[:-3]' <<< "$created"
+  return 0
+}
+
+GetHardwareInfo() {
+  local cli=$(cat ${SNIPPET}/hardware.conf)
+  local hardware=$(OpenSSH $TELTONIKA_USERNAME $TELTONIKA_PASSWORD $IP "${cli}")
+  $JQ -sRc 'split("\n") | sort_by(length) | del(.[0]) | reverse | {"mac": .[0], "serial": .[1]}' <<< "$hardware"
+  return 0
+}
+
+Configure() {
+  local remote=/tmp/$2
+  local cli=$(cat ${SNIPPET}/configure.conf | sed "s|file|$remote|g")
+
+  for item in $($JQ -r 'keys | sort_by(length) | reverse[]' <<< "$3"); do
+    get=$(echo "$3" | $JQ -r .${item})
+    cls=$(echo $item | tr -d "\x5f")
+    cli=${cli//placeholder${cls}/"$get"}
+  done
+
+  OpenSCP $TELTONIKA_USERNAME $TELTONIKA_PASSWORD $IP $1 $remote
+  OpenSSH $TELTONIKA_USERNAME $TELTONIKA_PASSWORD $IP "${cli}"
+  return 0
+}
+
+Clean() {
+  local cli=$(cat ${SNIPPET}/clean.conf | sed "s|file|$1|g")
+  OpenSSH $TELTONIKA_USERNAME $TELTONIKA_PASSWORD $IP "${cli}"
+  return 0
+}
+
+Fortigate() {
+  local id=$(GetStaticRoute "$1")
+  local cli=$(cat ${SNIPPET}/fortigate.conf | sed "s|placeholderstaticrouteid|$id|g")
+
+  for item in $($JQ -r 'keys | sort_by(length) | reverse[]' <<< "$1"); do
+    get=$(echo "$1" | $JQ -r .${item})
+    cls=$(echo $item | tr -d "\x5f")
+    cli=${cli//placeholder${cls}/"$get"}
+  done
+
+  OpenSSH $FORTINET_USERNAME $FORTINET_PASSWORD $FORTINET_IP "${cli}"
+  return 0
+}
+
+Sendgrid() {
+  local label=$($JQ -rc '.connectivity_network_label' <<< "$1")
+  local subject=$(printf "$MICROSERVICE_SENDGRID_SUBJECT" "$label")
+
+  $CURL -X POST -F "sender=$MICROSERVICE_SENDGRID_SENDER" \
+    -F "from=$MICROSERVICE_SENDGRID_FROM" \
+    -F "to=$MICROSERVICE_SENDGRID_TO" \
+    -F "subject=$subject" \
+    -F "personalization=$1" \
+    -F "reciver=$MICROSERVICE_SENDGRID_RECIVER" $MICROSERVICE_SENDGRID_DYNAMIC_TEMPLATE
+
+  return 0
+}
+
+version=$(GetVersion)
+if ! [[ "$TELTONIKA_FIRMWARE" =~ "$version" ]]; then
+  Upgrade $FIRMWARE
+  exit 0
+fi
+
+Clean $FIRMWARE
+
+hardware=$(GetHardwareInfo)
+create=$(Create "$hardware")
+
+if [ $? -eq 0 ]; then
+  file=$(GetConfiguration)
+  Configure "${CONFIGURATION}/${file}" "$file" "$create"
+  Fortigate "$create"
+
+  personalization=$(echo $hardware $create | jq -sc add)
+  personalization_interface=$(printf '. | .free="%s"' $IP)
+  personalization=$(jq -rc "$personalization_interface" <<< "$personalization")
+  Sendgrid "$personalization"
+fi
+
+exit 0;

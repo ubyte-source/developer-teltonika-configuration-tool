@@ -1,0 +1,42 @@
+#!/bin/bash
+
+JQ="/usr/bin/jq"
+CURL="/usr/bin/curl"
+FIND=/usr/bin/find
+NETCAT=/usr/bin/nc
+SSHPASS=/usr/bin/sshpass
+SNIPPET=$TOOL/snippet.d
+CONFIGURATION=$TOOL/configuration.d
+
+while getopts i: options; do
+   case ${options} in
+      i) IP=${OPTARG} ;;
+   esac
+done
+
+declare -a RESPONSE=()
+
+if ! [ -v IP ] ; then
+  RESPONSE+=("-i: Specifies the IP of Teltonika.")
+fi
+
+if [ ${#RESPONSE[@]} -ne 0 ] ; then
+  printf '%s\n' "${RESPONSE[@]}"
+  exit 1;
+fi
+
+unset RESPONSE
+
+OpenSSH() {
+  $SSHPASS -p $2 ssh -Tq $1@$3 "$4"
+  return 0
+}
+
+OpenSCP() {
+  $SSHPASS -p $2 scp -Oq "$4" $1@$3:"$5"
+  return 0
+}
+
+FIRMWARE=$(basename ${TELTONIKA_FIRMWARE})
+FIRMWARE=/tmp/$FIRMWARE
+[[ ! -f $FIRMWARE ]] && curl --insecure ${TELTONIKA_FIRMWARE} --output ${FIRMWARE}
