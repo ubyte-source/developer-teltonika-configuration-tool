@@ -36,7 +36,7 @@ Create() {
   local mac=$($JQ -rc .mac <<< "$1")
   local serial=$($JQ -rc .serial <<< "$1")
   local authorization=$($CURL -k -X POST -F "email=$CAMELOT_EMAIL" -F "password=$CAMELOT_PASSWORD" https://login.energia-europa.com/api/iam/user/login | $JQ -r .authorization)
-  local request=$($CURL -k -H "x-authorization: $authorization"  -F "connectivity_mac=$mac" -F "connectivity_serial=$serial" https://engine.energia-europa.com/api/machine/connectivity/create)
+  local request=$($CURL -k -H "x-authorization: $authorization"  -F "connectivity_mac=$mac" -F "connectivity_serial=$serial" ${URI})
   local request_status=$($JQ -rc .status <<< "$request")
   if [ $request_status = true ]; then
     local created=$($JQ -rc .data <<< "$request")

@@ -3,9 +3,14 @@
 # Start all process to configure the teltonika.
 # The process running in subshell.
 
-while getopts F: options; do
+URI="https://engine.energia-europa.com/api/machine/connectivity/"
+
+while getopts F:D: options; do
    case ${options} in
       F) TELTONIKA=${OPTARG} ;;
+   esac
+   case ${options} in
+      D) DETAIL=${OPTARG} ;;
    esac
 done
 
@@ -23,6 +28,9 @@ fi
 unset RESPONSE
 
 IFS=', ' read -r -a callinterface <<< "$TELTONIKA"
+
+[[ -v DETAIL ]] && URI="${URI}detail/${DETAIL}" || URI="${URI}create"
+export URI
 
 running() {
   ps aux | grep "$1" | grep -v grep > /dev/null
