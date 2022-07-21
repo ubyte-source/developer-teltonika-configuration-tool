@@ -2,7 +2,7 @@ FROM amd64/alpine:3.16
 
 ENV STARTUP_COMMAND_RUN_TELTONIKA="teltonika -F 10.20.90.254 -D 1" \
     TOOL="/app/tool" \
-    TELTONIKA_FIRMWARE="https://wiki.teltonika-networks.com/wikibase/images/5/51/RUT9_R_00.07.02.1_WEBUI.bin" \
+    TELTONIKA_FIRMWARE="https://wiki.teltonika-networks.com/wikibase/images/b/b9/RUT9_R_00.07.02.3_WEBUI.bin" \
     CAMELOT_EMAIL="teltonika@energia-europa.com" \
     CAMELOT_PASSWORD="mypassword" \
     FORTINET_USERNAME="root" \
