@@ -64,6 +64,12 @@ Configure() {
   done
 
   OpenSCP $TELTONIKA_USERNAME $TELTONIKA_PASSWORD $IP $1 $remote
+
+  if [ -v TELTONIKA_CUSTOMER_APN ] ; then
+    OpenSSH $TELTONIKA_USERNAME $TELTONIKA_PASSWORD $IP "export CUSTOMER_APN=${TELTONIKA_CUSTOMER_APN}"
+    cli=${cli//placeholdercustomerapn/"$TELTONIKA_CUSTOMER_APN"}
+  fi
+
   OpenSSH $TELTONIKA_USERNAME $TELTONIKA_PASSWORD $IP "${cli}"
   return 0
 }
