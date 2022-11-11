@@ -63,6 +63,7 @@ Configure() {
     cli=${cli//placeholder${cls}/"$get"}
   done
 
+  [ -v TELTONIKA_CUSTOMER_PIN ] && cli="export CUSTOMER_PIN=${TELTONIKA_CUSTOMER_PIN} && ${cli}"
   [ -v TELTONIKA_CUSTOMER_APN ] && cli="export CUSTOMER_APN=${TELTONIKA_CUSTOMER_APN} && ${cli}"
 
   OpenSCP $TELTONIKA_USERNAME $TELTONIKA_PASSWORD $IP $1 $remote
