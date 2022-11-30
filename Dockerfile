@@ -1,4 +1,4 @@
-FROM amd64/alpine:3.16
+FROM amd64/alpine:3.17
 
 ENV STARTUP_COMMAND_RUN_TELTONIKA="teltonika -F 10.20.90.254 -D 1" \
     TOOL="/app/tool" \
